@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}My Listings{% endblock %}
+
+{% block content %}
+<h2 class="text-center">My Listings</h2>
+
+<div class="row">
+    {% if products %}
+        {% for product in products %}
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    {% if product.image %}
+                        <img src="{{ product.image.url }}" class="card-img-top" alt="{{ product.title }}">
+                    {% else %}
+                        <img src="{% static 'images/no_image.png' %}" class="card-img-top" alt="No Image">
+                    {% endif %}
+                    <div class="card-body">
+                        <h5 class="card-title">{{ product.title }}</h5>
+                        <p class="text-primary">{{ product.price }} ₸</p>
+                        <a href="{% url 'product_detail' product.id %}" class="btn btn-info">View</a>
+                        <a href="{% url 'product_edit' product.id %}" class="btn btn-warning">Edit</a>
+                        <a href="{% url 'product_delete' product.id %}" class="btn btn-danger">Delete</a>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <p class="text-center">You haven't posted any listings yet.</p>
+    {% endif %}
+</div>
+
+{% endblock %}

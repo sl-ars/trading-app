@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Complete Payment for Order #{{ order.id }}</h2>
+<p><strong>Product:</strong> {{ order.product.name }}</p>
+<p><strong>Total Price:</strong> {{ order.total_price }} KZT</p>
+
+<button id="checkout-button" class="btn btn-success">Pay with Stripe</button>
+
+<script>
+    document.getElementById("checkout-button").addEventListener("click", function () {
+        fetch("{% url 'order-create_checkout_session' order.id %}", {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": "{{ csrf_token }}"
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            window.location.href = data.checkout_url; // Redirect to Stripe Checkout
+        });
+    });
+</script>
+{% endblock %}

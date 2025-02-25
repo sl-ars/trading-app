@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block title %}My Orders{% endblock %}
+
+{% block content %}
+<h2 class="text-center">My Orders</h2>
+
+<div class="row">
+    {% for order in orders %}
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">{{ order.product.title }}</h5>
+                    <p><strong>Quantity:</strong> {{ order.quantity }}</p>
+                    <p><strong>Total Price:</strong> {{ order.total_price }} ₸</p>
+                    <p><strong>Status:</strong> {{ order.status }}</p>
+                    <a href="{% url 'order_detail' order.id %}" class="btn btn-info">View Order</a>
+                </div>
+            </div>
+        </div>
+    {% empty %}
+        <p class="text-center">You have no orders yet.</p>
+    {% endfor %}
+</div>
+
+{% endblock %}

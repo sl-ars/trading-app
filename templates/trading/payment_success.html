@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container text-center">
+    <h2 class="text-success">Payment Successful! 🎉</h2>
+    <p>Thank you for your purchase! Your order <strong>#{{ order.id }}</strong> has been successfully paid.</p>
+    <p><strong>Product:</strong> {{ order.product.name }}</p>
+    <p><strong>Total Price:</strong> {{ order.total_price }} KZT</p>
+    <p><strong>Status:</strong> <span class="badge bg-success">Paid</span></p>
+    
+    <a href="{% url 'order_detail' order.id %}" class="btn btn-primary mt-3">View Order Details</a>
+    <a href="{% url 'main_page' %}" class="btn btn-secondary mt-3">Return to Home</a>
+</div>
+{% endblock %}

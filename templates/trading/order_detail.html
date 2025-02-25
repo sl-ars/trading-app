@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>{{ order.product.title }}</h2>
+<p><strong>Quantity:</strong> {{ order.quantity }}</p>
+<p><strong>Total Price:</strong> {{ order.total_price }} ₸</p>
+<p><strong>Status:</strong> {{ order.status }}</p>
+<p><strong>Created At:</strong> {{ order.created_at }}</p>
+
+{% if order.status == 'pending' %}
+    <a href="{% url 'cancel_order' order.id %}" class="btn btn-danger">Cancel Order</a>
+{% endif %}
+
+<a href="{% url 'order_list' %}" class="btn btn-secondary">Back to Orders</a>
+{% endblock %}

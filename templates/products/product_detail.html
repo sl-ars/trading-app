@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ product.title }}{% endblock %}
+
+{% block content %}
+<h2>{{ product.title }}</h2>
+
+{% if product.image %}
+    <img src="{{ product.image.url }}" class="img-fluid mb-3" alt="{{ product.title }}">
+{% else %}
+    <img src="{% static 'images/no_image.png' %}" class="img-fluid mb-3" alt="No Image">
+{% endif %}
+
+<p>{{ product.description }}</p>
+<p class="text-primary"><strong>Price:</strong> {{ product.price }} ₸</p>
+<p><strong>Category:</strong> {{ product.category.name }}</p>
+<p><strong>Posted on:</strong> {{ product.created_at }}</p>
+
+{% if user.is_authenticated and user == product.user %}
+    <a href="{% url 'product_edit' product.id %}" class="btn btn-warning">Edit</a>
+    <a href="{% url 'product_delete' product.id %}" class="btn btn-danger">Delete</a>
+{% else %}
+    <a href="{% url 'create_order' product.id %}" class="btn btn-success">Buy Now</a>
+{% endif %}
+
+{% endblock %}

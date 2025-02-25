@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}My Transactions{% endblock %}
+
+{% block content %}
+<h2 class="text-center">My Transactions</h2>
+
+<div class="row">
+    {% for transaction in transactions %}
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Transaction for Order #{{ transaction.order.id }}</h5>
+                    <p><strong>Amount:</strong> {{ transaction.transaction_amount }} ₸</p>
+                    <p><strong>Status:</strong> {{ transaction.status }}</p>
+                    <p><strong>Transaction Date:</strong> {{ transaction.transaction_date }}</p>
+                </div>
+            </div>
+        </div>
+    {% empty %}
+        <p class="text-center">You have no transactions yet.</p>
+    {% endfor %}
+</div>
+
+{% endblock %}
