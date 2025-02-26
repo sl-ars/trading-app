@@ -15,7 +15,7 @@
         <div class="collapse navbar-collapse">
             <ul class="navbar-nav ms-auto">
                 <li class="nav-item"><a class="nav-link" href="{% url 'product_list' %}">Browse Listings</a></li>
-                {% if user.is_authenticated %}
+                {% if user.is_authenticated  %}
                     <li class="nav-item"><a class="nav-link" href="{% url 'product_create' %}">Create Listing</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'user_listings' %}">My Listings</a></li>
                     <li class="nav-item"><a class="nav-link" href="{% url 'order_list' %}">My Orders</a></li>
@@ -38,10 +38,10 @@
     {% block content %}{% endblock %}
 </div>
 
-<!-- Footer -->
-<footer class="bg-light text-center py-3 mt-4">
-    <p>&copy; 2025 Trading App. All rights reserved.</p>
-</footer>
+{#<!-- Footer -->#}
+{#<footer class="bg-light text-center py-3 mt-4">#}
+{#    <p>&copy; 2025 Trading App. All rights reserved.</p>#}
+{#</footer>#}
 
 </body>
 </html>
