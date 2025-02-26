@@ -6,6 +6,22 @@
 <div class="row justify-content-center">
     <div class="col-md-6">
         <h2 class="text-center">Your Profile</h2>
+
+        <!-- Messages -->
+        <div id="message-box" class="alert d-none"></div>
+
+        <!-- Avatar -->
+        <div class="text-center mb-3">
+            {% if user.avatar %}
+                <img id="profile-avatar" src="{{ user.avatar.url }}" class="rounded-circle" width="120" height="120" alt="Profile Picture">
+            {% else %}
+                <img id="profile-avatar" src="" class="rounded-circle" alt="No Avatar">
+            {% endif %}
+            <br>
+            <input type="file" id="avatar-input" class="form-control mt-2 d-none">
+            <button class="btn btn-sm btn-outline-primary mt-2" id="edit-avatar-btn">Update Avatar</button>
+        </div>
+
         <table class="table">
             <tr>
                 <th>Username:</th>
@@ -17,13 +33,120 @@
             </tr>
             <tr>
                 <th>Role:</th>
-                <td>{{ user.role }}</td>
+                <td>{{ user.get_role_display }}</td>
+            </tr>
+            <tr>
+                <th>First Name:</th>
+                <td>
+                    <span id="first-name-text">{{ user.first_name }}</span>
+                    <input type="text" id="first-name-input" class="form-control d-none" value="{{ user.first_name }}">
+                    <button class="btn btn-sm btn-outline-primary" id="edit-first-name-btn">Update</button>
+                </td>
+            </tr>
+            <tr>
+                <th>Last Name:</th>
+                <td>
+                    <span id="last-name-text">{{ user.last_name }}</span>
+                    <input type="text" id="last-name-input" class="form-control d-none" value="{{ user.last_name }}">
+                    <button class="btn btn-sm btn-outline-primary" id="edit-last-name-btn">Update</button>
+                </td>
+            </tr>
+            <tr>
+                <th>Phone Number:</th>
+                <td>
+                    <span id="phone-number-text">{{ user.phone_number }}</span>
+                    <input type="text" id="phone-number-input" class="form-control d-none" value="{{ user.phone_number }}">
+                    <button class="btn btn-sm btn-outline-primary" id="edit-phone-number-btn">Update</button>
+                </td>
             </tr>
         </table>
-        <form method="post" action="{% url 'logout' %}">
+
+        <form method="post" action="{% url 'logout' %}" class="mt-3">
             {% csrf_token %}
             <button type="submit" class="btn btn-danger w-100">Logout</button>
         </form>
     </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+    function showMessage(type, text) {
+        const msgBox = document.getElementById("message-box");
+        msgBox.className = "alert alert-" + type;
+        msgBox.innerText = text;
+        msgBox.classList.remove("d-none");
+        setTimeout(() => msgBox.classList.add("d-none"), 3000);
+    }
+
+    function updateField(fieldName, inputId, textId, buttonId) {
+        const inputField = document.getElementById(inputId);
+        const textField = document.getElementById(textId);
+        const button = document.getElementById(buttonId);
+
+        button.addEventListener("click", function () {
+            if (inputField.classList.contains("d-none")) {
+                inputField.classList.remove("d-none");
+                textField.classList.add("d-none");
+                button.textContent = "Save";
+            } else {
+                let formData = new FormData();
+                formData.append(fieldName, inputField.value);
+
+                fetch("/api/users/profile/update/", {
+                    method: "POST",
+                    body: formData,
+                    headers: { "X-CSRFToken": "{{ csrf_token }}" },
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        textField.textContent = inputField.value;
+                        showMessage("success", "Profile updated successfully!");
+                    } else {
+                        showMessage("danger", "Error updating profile.");
+                    }
+                    inputField.classList.add("d-none");
+                    textField.classList.remove("d-none");
+                    button.textContent = "Update";
+                })
+                .catch(error => showMessage("danger", "Error updating profile."));
+            }
+        });
+    }
+
+    updateField("first_name", "first-name-input", "first-name-text", "edit-first-name-btn");
+    updateField("last_name", "last-name-input", "last-name-text", "edit-last-name-btn");
+    updateField("phone_number", "phone-number-input", "phone-number-text", "edit-phone-number-btn");
+
+    document.getElementById("edit-avatar-btn").addEventListener("click", function () {
+        const fileInput = document.getElementById("avatar-input");
+        fileInput.classList.remove("d-none");
+
+        fileInput.addEventListener("change", function () {
+            let formData = new FormData();
+            formData.append("avatar", fileInput.files[0]);
+
+            fetch("/api/users/profile/update/", {
+                method: "POST",
+                body: formData,
+                headers: { "X-CSRFToken": "{{ csrf_token }}" },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById("profile-avatar").src = data.avatar;
+                    showMessage("success", "Avatar updated successfully!");
+                } else {
+                    showMessage("danger", "Error updating avatar.");
+                }
+                fileInput.classList.add("d-none");
+            })
+            .catch(error => showMessage("danger", "Error updating avatar."));
+        });
+    });
+
+});
+</script>
+
 {% endblock %}

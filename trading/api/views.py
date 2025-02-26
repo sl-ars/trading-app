@@ -1,10 +1,13 @@
-from rest_framework import viewsets, permissions, filters
+from django.shortcuts import get_object_or_404
+from rest_framework import viewsets, permissions, filters, serializers
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from django_filters.rest_framework import DjangoFilterBackend
 import stripe
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from ..models import Order, Transaction
 from .serializers import OrderSerializer, TransactionSerializer
 from products.models import Product, Category
@@ -25,21 +28,25 @@ def stripe_webhook(request):
 
     try:
         event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
-    except ValueError as e:
+    except ValueError:
         return JsonResponse({"error": "Invalid payload"}, status=400)
-    except stripe.error.SignatureVerificationError as e:
+    except stripe.error.SignatureVerificationError:
         return JsonResponse({"error": "Invalid signature"}, status=400)
 
-    # Handle the successful payment event
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
         order_id = session["metadata"]["order_id"]
-        order = Order.objects.filter(id=order_id, status="pending").first()
 
+        order = Order.objects.filter(id=order_id, status="pending").first()
         if order:
             order.status = "paid"
             order.save()
-            Transaction.objects.create(order=order, payment_intent_id=session["payment_intent"], payment_status="paid")
+
+            Transaction.objects.create(
+                order=order,
+                payment_intent_id=session["payment_intent"],
+                payment_status="paid"
+            )
 
     return JsonResponse({"message": "Success"}, status=200)
 
@@ -59,8 +66,9 @@ class OrderViewSet(viewsets.ModelViewSet):
     search_fields = ['status', 'user__username']
 
     def get_queryset(self):
-        if self.request.user.is_admin() or self.request.user.is_manager():
-            return Order.objects.all()
+        if not self.request.user.is_anonymous:
+            if  self.request.user.is_admin() or self.request.user.is_manager():
+                return Order.objects.all()
         return Order.objects.filter(user=self.request.user)
 
     def perform_create(self, serializer):
@@ -90,7 +98,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             line_items=[{
                 'price_data': {
                     'currency': 'kzt',
-                    'product_data': {'name': order.product.name},
+                    'product_data': {'name': order.product.title},
                     'unit_amount': int(order.total_price * 100),
                 },
                 'quantity': order.quantity,
@@ -133,6 +141,30 @@ class OrderViewSet(viewsets.ModelViewSet):
             order.save()
             return Response({"message": "Order cancelled", "order_id": order.id})
         return Response({"error": "Order cannot be cancelled"}, status=400)
+
+
+
+    @swagger_auto_schema(
+        method='get',
+        operation_description="Checks if order payment is confirmed",
+        responses={200: "Payment Verified"}
+    )
+    @action(detail=True, methods=['get'], url_path='verify-payment')
+    def verify_payment(self, request, pk=None):
+        """ API to verify if payment was successful """
+        order = get_object_or_404(Order, id=pk, user=request.user)
+
+        if not order.stripe_payment_intent:
+            return Response({"error": "No payment intent found"}, status=400)
+
+        intent = stripe.PaymentIntent.retrieve(order.stripe_payment_intent)
+
+        if intent.status == "succeeded":
+            order.status = "paid"
+            order.save()
+            return Response({"message": "Payment confirmed", "order_status": order.status})
+
+        return Response({"message": "Payment not completed yet"}, status=400)
 
 class TransactionViewSet(viewsets.ModelViewSet):
     queryset = Transaction.objects.all()

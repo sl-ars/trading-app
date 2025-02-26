@@ -6,17 +6,16 @@ User = get_user_model()
 
 
 class UserSerializer(serializers.ModelSerializer):
+    avatar_url = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'role')
-        extra_kwargs = {
-            'id': {'read_only': True, 'help_text': 'The unique identifier of the user.'},
-            'username': {'help_text': 'The username for the user.'},
-            'email': {'help_text': 'Email address of the user.'},
-            'first_name': {'help_text': 'User\'s first name.'},
-            'last_name': {'help_text': 'User\'s last name.'},
+        fields = ('id', 'username', 'email', 'first_name', 'last_name', 'role', 'phone_number', 'avatar_url')
 
-        }
+    def get_avatar_url(self, obj):
+        if obj.avatar:
+            return obj.avatar.url
+        return None
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -25,14 +24,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('username', 'email', 'password', 'password2')
-
-    extra_kwargs = {
-        'username': {'help_text': 'Unique username for the user.'},
-        'email': {'help_text': 'Email address of the user.'},
-        'password': {'write_only': True, 'help_text': 'Password for the user.'},
-        'password2': {'write_only': True, 'help_text': 'Confirm password.'},
-    }
+        fields = ('username', 'email', 'password', 'password2', 'role', 'phone_number')
 
     def validate(self, data):
         """ Validate that passwords match """
@@ -42,7 +34,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         """ Create a new user and return it """
-        validated_data.pop('password2')  # Remove password2 field
+        validated_data.pop('password2')
         user = User.objects.create_user(**validated_data)
         return user
 
@@ -50,11 +42,6 @@ class RegisterSerializer(serializers.ModelSerializer):
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=255, help_text="Username of the user.")
     password = serializers.CharField(write_only=True, help_text="Password of the user.")
-
-    extra_kwargs = {
-        'username': {'help_text': 'Enter your username.'},
-        'password': {'write_only': True, 'help_text': 'Enter your password.'}
-    }
 
     def validate(self, data):
         from django.contrib.auth import authenticate
@@ -66,5 +53,17 @@ class LoginSerializer(serializers.Serializer):
         return {
             'refresh': str(refresh),
             'access': str(refresh.access_token),
-            'user': UserSerializer(user).data
+            'user': UserSerializer(user, context=self.context).data
         }
+
+
+class ProfileUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('first_name', 'last_name', 'phone_number')
+
+
+class AvatarUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('avatar',)

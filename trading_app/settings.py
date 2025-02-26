@@ -34,7 +34,7 @@ SECRET_KEY = env.str('SECRET_KEY')
 DEBUG = env.bool('DEBUG', default=True)
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
-
+FRONTEND_URL = "http://localhost:8000"
 
 # Application definition
 AUTH_USER_MODEL = 'users.User'
@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     'analytics',
     'notifications',
     'corsheaders',
+    'storages'
 
 ]
 
@@ -77,12 +78,8 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware'
 ]
 
-CORS_ALLOW_ALL_ORIGINS = True  # Allow all domains (for local development)
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOWED_ORIGINS = [
-    "https://js.stripe.com",
-    "https://api.stripe.com",
-]
 
 ROOT_URLCONF = 'trading_app.urls'
 
@@ -97,7 +94,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'users.context_processors.user_context_processor',
+
             ],
         },
     },
@@ -177,6 +174,25 @@ SWAGGER_SETTINGS = {
     'JSON_EDITOR': True,
 }
 
-LOGIN_URL = "/login/"
-LOGIN_REDIRECT_URL = "/profile/"
-LOGOUT_REDIRECT_URL = "/login/"
+LOGIN_URL = "user/login/"
+LOGIN_REDIRECT_URL = "user/profile/"
+LOGOUT_REDIRECT_URL = "user/login/"
+
+
+# AWS Credentials
+AWS_ACCESS_KEY_ID = env.str('AWS_ACCESS_KEY_ID')
+AWS_SECRET_ACCESS_KEY = env.str('AWS_SECRET_ACCESS_KEY')
+AWS_STORAGE_BUCKET_NAME = env.str('AWS_STORAGE_BUCKET_NAME')
+AWS_S3_REGION_NAME = env.str('AWS_S3_REGION_NAME')
+AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com"
+
+WS_DEFAULT_ACL = None
+AWS_S3_OBJECT_PARAMETERS = {
+    "CacheControl": "max-age=86400",
+}
+AWS_QUERYSTRING_AUTH = False
+
+
+# S3
+DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+MEDIA_URL = f"{AWS_S3_CUSTOM_DOMAIN}/"

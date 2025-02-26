@@ -9,6 +9,7 @@
 
 {% if order.status == 'pending' %}
     <a href="{% url 'cancel_order' order.id %}" class="btn btn-danger">Cancel Order</a>
+     <a href="{% url 'payment_page' order.id %}" class="btn btn-success">Payment</a>
 {% endif %}
 
 <a href="{% url 'order_list' %}" class="btn btn-secondary">Back to Orders</a>
