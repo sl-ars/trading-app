@@ -252,17 +252,17 @@ LOGGING = {
     },
     "loggers": {
         "django": {
-            "handlers": ["console", "file", "sentry"],
+            "handlers": ["console", "sentry"],
             "level": "DEBUG",
             "propagate": True,
         },
         "django.request": {
-            "handlers": ["console", "file", "sentry"],
+            "handlers": ["console", "sentry"],
             "level": "ERROR",
             "propagate": False,
         },
         "django.db.backends": {
-            "handlers": ["console", "file"],
+            "handlers": ["console"],
             "level": "INFO",
             "propagate": False,
         },
