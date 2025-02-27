@@ -239,12 +239,12 @@ LOGGING = {
             "stream": sys.stdout,
             "formatter": "verbose",
         },
-        "file": {
-            "level": "ERROR",
-            "class": "logging.FileHandler",
-            "filename": "logs/django_error.log",
-            "formatter": "verbose",
-        },
+        # "file": {
+        #     "level": "ERROR",
+        #     "class": "logging.FileHandler",
+        #     "filename": "logs/django_error.log",
+        #     "formatter": "verbose",
+        # },
         "sentry": {
             "level": "ERROR",
             "class": "sentry_sdk.integrations.logging.EventHandler",
