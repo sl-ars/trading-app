@@ -34,7 +34,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
 
         notification_data = {
             "notification": {
-                "message": "LOX"+event["message"],
+                "message": event["message"],
                 "created_at": event.get("created_at")
             }
         }
@@ -59,7 +59,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
 
         notification_data = {
             "notification": {
-                "message": "LOX"+event["message"],
+                "message": event["message"],
                 "created_at": event.get("created_at")
             }
         }
