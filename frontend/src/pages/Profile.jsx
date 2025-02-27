@@ -66,7 +66,7 @@ const Profile = () => {
         },
       })
       .then((response) => {
-        setUser((prev) => ({ ...prev, [field]: response.data.updated_fields[field] }));
+        setUser((prev) => ({ ...prev, [field]: response.data[field] }));
         setEditMode(null);
         setMessage({ type: "success", text: "Profile updated successfully!" });
 

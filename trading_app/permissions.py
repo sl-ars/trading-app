@@ -5,15 +5,16 @@ class IsAdmin(permissions.BasePermission):
     def has_permission(self, request, view):
         return request.user.is_authenticated and request.user.is_admin()
 
-class IsManager(permissions.BasePermission):
-    """ Allows only Manager users. """
-    def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.is_manager()
 
-class IsSeller(permissions.BasePermission):
-    """ Allows only Seller users. """
+class IsTrader(permissions.BasePermission):
+    """ Allows only Trader users. """
     def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.is_seller()
+        return request.user.is_authenticated and request.user.is_trader()
+
+class IsSalesRep(permissions.BasePermission):
+    """ Allows only Sales Rep users. """
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.is_sales_rep()
 
 class IsCustomer(permissions.BasePermission):
     """ Allows only Customer users. """

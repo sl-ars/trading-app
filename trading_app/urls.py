@@ -14,29 +14,32 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+from django.conf import settings
 from django.contrib import admin
 from django.urls import path, include
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from rest_framework.routers import DefaultRouter
 from rest_framework.permissions import AllowAny
+from django.conf.urls.static import static
 
 
+api_urlpatterns = [
+    path('trading/', include('trading.urls')),
+    path('users/', include('users.urls')),
+    path('products/', include('products.urls')),
 
+    path('sales/', include('sales.urls')),
+
+    path('notifications/', include('notifications.urls')),
+]
 
 urlpatterns = [
 
-    # Template-based URLs (Frontend)
     path('admin/', admin.site.urls),
-    path('products/', include('products.urls')),
-    path('user/', include('users.urls')),
-    path('', include('trading.urls')),
-    path('sales/', include('sales.urls')),
-    path('analytics/', include('analytics.urls')),
-    path('notifications/', include('notifications.urls')),
 
-    # API URLs (Backend)
-    path('api/', include('api.urls')),
+    path('api/', include(api_urlpatterns)),
+
 ]
 
 
