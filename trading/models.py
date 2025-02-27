@@ -10,6 +10,8 @@ class Order(models.Model):
         ('failed', 'Failed'),
         ('canceled', 'Canceled'),
         ('shipped', 'Shipped'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
 
     )
 

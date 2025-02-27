@@ -10,27 +10,11 @@ from sales.models import SalesOrder, Payment, Invoice
 from sales.serializers import SalesOrderSerializer, PaymentSerializer, InvoiceSerializer
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from trading_app.permissions import IsCustomer, IsTrader
-from channels.layers import get_channel_layer
-from asgiref.sync import async_to_sync
-
-# Set Stripe API Key
-stripe.api_key = settings.STRIPE_SECRET_KEY
-
-
-from django.shortcuts import get_object_or_404
-from rest_framework import viewsets, permissions, serializers, status
-from rest_framework.response import Response
-from rest_framework.decorators import action
-from drf_yasg.utils import swagger_auto_schema
-from django.conf import settings
-import stripe
-from sales.models import SalesOrder, Payment
-from sales.serializers import SalesOrderSerializer, PaymentSerializer
 from trading.models import Order
 from trading_app.permissions import IsCustomer, IsTrader
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from sales.tasks import generate_invoice
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -88,8 +72,8 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         if settings.DEBUG:
             sales_order.status = "paid"
             sales_order.save()
-            self.generate_invoice(sales_order)
-            return Response({"message": "DEBUG Mode: Order automatically marked as paid."}, status=status.HTTP_200_OK)
+            ##self.generate_invoice(sales_order)
+            #return Response({"message": "DEBUG Mode: Order automatically marked as paid."}, status=status.HTTP_200_OK)
 
         # Create Stripe Checkout session
         session = stripe.checkout.Session.create(
@@ -130,18 +114,26 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
         sales_order.status = "shipped"
         sales_order.save()
 
-        # Notify customer
-        self.send_notification(sales_order.order.user, f"Your order for {sales_order.order.product.title} has been shipped.")
+
 
         return Response({"message": "Order marked as shipped", "sales_order_id": sales_order.id})
 
-    @staticmethod
-    def send_notification(user, message):
-        """ Sends a WebSocket notification """
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            f"user_{user.id}", {"type": "notify", "message": message}
-        )
+
+    @action(detail=True, methods=['post'], permission_classes=[IsTrader])
+    def mark_as_paid(self, request, pk=None):
+        """Mark an order as paid (only for testing/debugging)"""
+        sales_order = self.get_object()
+
+        if sales_order.status != "approved":
+            return Response({"error": "Only approved orders can be marked as paid"}, status=status.HTTP_400_BAD_REQUEST)
+
+        sales_order.status = "paid"
+        sales_order.save()
+
+        generate_invoice.delay(sales_order.id)
+
+        return Response({"message": "Order marked as paid, invoice is being generated."})
+
 
 
 
@@ -192,8 +184,41 @@ class InvoiceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """ Returns only invoices related to the user's sales orders """
-
         if getattr(self, 'swagger_fake_view', False):
             return Invoice.objects.none()
 
         return Invoice.objects.filter(sales_order__order__user=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        """ Create an invoice and trigger PDF generation """
+        sales_order_id = request.data.get("sales_order")
+
+        if not sales_order_id:
+            return Response({"error": "Missing sales_order ID"}, status=status.HTTP_400_BAD_REQUEST)
+
+        sales_order = get_object_or_404(SalesOrder, id=sales_order_id)
+
+        if (
+            sales_order.order.user != request.user and
+            sales_order.order.product.user != request.user and
+            not request.user.is_admin()
+        ):
+            return Response(
+                {"error": "You do not have permission to generate this invoice."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+
+        if Invoice.objects.filter(sales_order=sales_order).exists():
+            return Response({"error": "Invoice already exists"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+        invoice = Invoice.objects.create(sales_order=sales_order)
+
+
+        generate_invoice.delay(sales_order.id)
+
+        return Response(
+            {"message": "Invoice is being generated. Please check again later.", "invoice_id": invoice.id},
+            status=status.HTTP_202_ACCEPTED
+        )

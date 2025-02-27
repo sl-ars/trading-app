@@ -30,11 +30,12 @@ class NotificationConsumer(AsyncWebsocketConsumer):
             await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
     async def send_notification(self, event):
-        """ Sends real-time notifications in correct format """
+        """ Sends real-time notifications """
+
         notification_data = {
             "notification": {
-                "message": event.get("message", "New Notification"),
-                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Ensures proper datetime format
+                "message": "LOX"+event["message"],
+                "created_at": event.get("created_at")
             }
         }
         await self.send(text_data=json.dumps(notification_data))
@@ -54,10 +55,12 @@ class NotificationConsumer(AsyncWebsocketConsumer):
 
     async def notify(self, event):
         """ Handles `notify` event type and ensures correct format """
+
+
         notification_data = {
             "notification": {
-                "message": event.get("message", "New Notification"),
-                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                "message": "LOX"+event["message"],
+                "created_at": event.get("created_at")
             }
         }
         await self.send(text_data=json.dumps(notification_data))

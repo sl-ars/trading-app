@@ -30,8 +30,10 @@ class OrderViewSet(viewsets.ModelViewSet):
     queryset = Order.objects.all().order_by('-created_at')
     serializer_class = OrderSerializer
     permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    search_fields = ['status', 'user__username']
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['status']
+    search_fields = ['status', 'user__username', 'product__title']
+    ordering_fields = ['created_at', 'total_price']
     pagination_class = OrderPagination
 
     def get_queryset(self):
@@ -68,12 +70,6 @@ class OrderViewSet(viewsets.ModelViewSet):
             total_price=product.price * int(quantity)
         )
 
-        # Send notification to the trader
-        self.send_notification(product.user, {
-            "message": f"New order request for {product.title}. Approve or reject.",
-            "order_id": order.id,
-            "product": product.title
-        })
 
         return Response({
             "id": order.id,
@@ -104,12 +100,8 @@ class OrderViewSet(viewsets.ModelViewSet):
             status_to="approved"
         )
 
-        # Notify customer
-        self.send_notification(order.user, {
-            "message": f"Your order for {order.product.title} has been approved.",
-            "order_id": order.id,
-            "product": order.product.title
-        })
+
+
 
         return Response({"message": "Order approved", "order_id": order.id})
 
@@ -135,12 +127,7 @@ class OrderViewSet(viewsets.ModelViewSet):
             status_to="rejected"
         )
 
-        # Notify customer
-        self.send_notification(order.user, {
-            "message": f"Your order for {order.product.title} has been rejected.",
-            "order_id": order.id,
-            "product": order.product.title
-        })
+
 
         return Response({"message": "Order rejected", "order_id": order.id})
 
@@ -168,22 +155,36 @@ class OrderViewSet(viewsets.ModelViewSet):
             status_to="shipped"
         )
 
-        # Notify customer
-        self.send_notification(order.user, {
-            "message": f"Your order for {order.product.title} has been shipped.",
-            "order_id": order.id,
-            "product": order.product.title
-        })
+
 
         return Response({"message": "Order shipped", "order_id": order.id})
 
-    @staticmethod
-    def send_notification(user, data):
-        """Sends a notification via WebSocket"""
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            f"user_{user.id}", {"type": "notify", "notification": data}
+    @action(detail=True, methods=['post'], permission_classes=[IsCustomer])
+    def cancel(self, request, pk=None):
+        """Allow customers to cancel an order before approval"""
+        order = self.get_object()
+
+        if order.user != request.user:
+            return Response({"error": "You do not have permission to cancel this order."},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        if order.status != 'pending':
+            return Response({"error": "Only pending orders can be canceled."}, status=status.HTTP_400_BAD_REQUEST)
+
+        order.status = "canceled"
+        order.save()
+
+        # Log transaction
+        Transaction.objects.create(
+            order=order,
+            user=request.user,
+            status_from="pending",
+            status_to="canceled"
         )
+
+
+        return Response({"message": "Order canceled", "order_id": order.id})
+
 
 
 class TransactionViewSet(viewsets.ModelViewSet):

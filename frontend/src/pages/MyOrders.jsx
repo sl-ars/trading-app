@@ -50,29 +50,65 @@ const MyOrders = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      window.location.href = response.data.checkout_url; // Redirect to payment page
+      if (response.data.checkout_url) {
+        window.location.href = response.data.checkout_url;
+      } else {
+        console.error("No checkout URL received:", response.data);
+      }
     } catch (error) {
       console.error("Payment session creation failed:", error);
     }
   };
+
+  const generateInvoice = async (salesOrderId) => {
+    try {
+      await axios.post(
+        `${API_BASE_URL}/sales/invoices/`,
+        { sales_order: salesOrderId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      alert("Invoice is being generated! Refresh the page in a few moments.");
+    } catch (error) {
+      console.error("Failed to generate invoice:", error.response?.data || error.message);
+      alert("Failed to generate invoice.");
+    }
+  };
+
+    const downloadInvoice = async (url) => {
+      try {
+        if (url) {
+          window.open(url, "_blank");
+        } else {
+          console.error("No download URL received:", url);
+        }
+      } catch (error) {
+        console.error("Failed to fetch invoice download URL:", error.response?.data || error.message);
+        alert("Failed to fetch invoice.");
+      }
+    };
 
   return (
     <div className="container mx-auto p-6">
       <h2 className="text-3xl font-semibold mb-6">My Orders</h2>
 
       {/* Status Filter */}
-      <div className="mb-4">
-        <label className="mr-2">Filter by Status:</label>
+      <div className="mb-4 flex items-center gap-4">
+        <label className="mr-2 font-semibold">Filter by Status:</label>
         <select
           className="border p-2 rounded"
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setCurrentPage(1);
+          }}
         >
           <option value="">All</option>
           <option value="pending">Pending</option>
           <option value="approved">Approved</option>
           <option value="rejected">Rejected</option>
           <option value="shipped">Shipped</option>
+          <option value="paid">Paid</option>
         </select>
       </div>
 
@@ -103,35 +139,10 @@ const MyOrders = () => {
                   <h3 className="text-lg font-semibold">Order Details</h3>
                   <p><span className="font-semibold">Order Date:</span> {order.created_at}</p>
                   <p><span className="font-semibold">Payment Status:</span> {order.payment_status}</p>
-
-                  {/* View Product Button */}
-                  <button
-                    className="bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 transition mt-2"
-                    onClick={() => setSelectedProduct(order.product.id === selectedProduct ? null : order.product.id)}
-                  >
-                    {selectedProduct === order.product.id ? "Hide Product Details" : "View Product"}
-                  </button>
-
-                  {/* Product Details */}
-                  {selectedProduct === order.product.id && (
-                    <div className="mt-4 border-t pt-4">
-                      <h3 className="text-lg font-semibold">{order.product.title}</h3>
-                      <p>{order.product.description}</p>
-                      <img src={order.product.image} alt={order.product.title} className="w-32 h-32 object-cover rounded mt-2" />
-                      <div className="mt-2">
-                        <Link
-                          to={`/products/${order.product.id}`}
-                          className="bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 transition"
-                        >
-                          View Product Page
-                        </Link>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
 
-              {/* Cancel & Payment Buttons */}
+              {/* Cancel, Pay Now, and Invoice Buttons */}
               <div className="mt-4 flex gap-4">
                 {order.status === "pending" && (
                   <button
@@ -141,13 +152,30 @@ const MyOrders = () => {
                     Cancel Order
                   </button>
                 )}
-                {order.status === "approved" && (
+                {order.sales_order?.status !== "paid" && order.status === "approved" && (
                   <button
                     className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition"
                     onClick={() => handlePayment(order.id)}
                   >
                     Pay Now
                   </button>
+                )}
+                {order.sales_order?.status === "paid" && (
+                  order.sales_order.invoice ? (
+                    <button
+                      className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition"
+                      onClick={() => downloadInvoice(order.sales_order.invoice.pdf_file)}
+                    >
+                      Download Invoice
+                    </button>
+                  ) : (
+                    <button
+                      className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition"
+                      onClick={() => generateInvoice(order.sales_order.id)}
+                    >
+                      Generate Invoice
+                    </button>
+                  )
                 )}
               </div>
             </li>
@@ -160,7 +188,7 @@ const MyOrders = () => {
       {/* Pagination */}
       <div className="flex justify-center mt-6">
         <button
-          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+          onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
           disabled={currentPage === 1}
           className={`px-4 py-2 mx-2 ${currentPage === 1 ? "bg-gray-300" : "bg-blue-500 text-white"} rounded-lg`}
         >
@@ -170,7 +198,7 @@ const MyOrders = () => {
         <span className="px-4 py-2">Page {currentPage} of {totalPages}</span>
 
         <button
-          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+          onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
           disabled={currentPage === totalPages}
           className={`px-4 py-2 mx-2 ${currentPage === totalPages ? "bg-gray-300" : "bg-blue-500 text-white"} rounded-lg`}
         >

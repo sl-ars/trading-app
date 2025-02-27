@@ -22,6 +22,11 @@ from drf_yasg import openapi
 from rest_framework.routers import DefaultRouter
 from rest_framework.permissions import AllowAny
 from django.conf.urls.static import static
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+    TokenVerifyView
+)
 
 
 api_urlpatterns = [
@@ -32,6 +37,9 @@ api_urlpatterns = [
     path('sales/', include('sales.urls')),
 
     path('notifications/', include('notifications.urls')),
+
+    path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("token/verify/", TokenVerifyView.as_view(), name="token_verify"),
 ]
 
 urlpatterns = [
