@@ -1,6 +1,6 @@
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from users.serializers import (
@@ -29,8 +29,11 @@ class UserViewSet(viewsets.ViewSet):
     @swagger_auto_schema(request_body=RegisterSerializer, responses={201: UserSerializer})
     @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny])
     def register(self, request):
+        if request.data.role not in ['customer', 'trader']:
+            return Response({"error": "Permission denied!"}, status=status.HTTP_406_NOT_ACCEPTABLE)
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
         user = serializer.save()
         return Response(UserSerializer(user, context={"request": request}).data)
 
