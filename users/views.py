@@ -29,8 +29,9 @@ class UserViewSet(viewsets.ViewSet):
     @swagger_auto_schema(request_body=RegisterSerializer, responses={201: UserSerializer})
     @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny])
     def register(self, request):
-        if request.data.role not in ['customer', 'trader']:
+        if request.data.get('role') not in ['customer', 'trader']:
             return Response({"error": "Permission denied!"}, status=status.HTTP_406_NOT_ACCEPTABLE)
+
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
