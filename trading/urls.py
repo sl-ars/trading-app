@@ -7,6 +7,5 @@ router.register(r'orders', OrderViewSet, basename='orders')
 router.register(r'transactions', TransactionViewSet, basename='transactions')
 
 urlpatterns = [
-    #path('webhooks/stripe/', stripe_webhook, name='stripe_webhook'),
     path('', include(router.urls)),
 ]

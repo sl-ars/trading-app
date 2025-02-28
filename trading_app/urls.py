@@ -40,6 +40,7 @@ api_urlpatterns = [
 
     path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("token/verify/", TokenVerifyView.as_view(), name="token_verify"),
+path("webhooks/", include("webhooks.urls")),
 ]
 
 urlpatterns = [
@@ -47,6 +48,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
 
     path('api/', include(api_urlpatterns)),
+
+
 
 ]
 

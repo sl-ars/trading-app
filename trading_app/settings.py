@@ -11,6 +11,10 @@ import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
 from sentry_sdk.integrations.redis import RedisIntegration
 from sentry_sdk.integrations.celery import CeleryIntegration
+from django.utils.log import DEFAULT_LOGGING
+import drf_spectacular
+# Check if running inside Docker
+DOCKER_MODE = os.getenv('DOCKERIZED')
 
 # === BASE DIRECTORY === #
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -25,7 +29,10 @@ DEBUG = env.bool('DEBUG', default=True)
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
 
 # === FRONTEND URL === #
-FRONTEND_URL = env.str('FRONTEND_URL', default="http://localhost:5173")
+if DEBUG:
+    FRONTEND_URL = "http://localhost:5173"
+else:
+    FRONTEND_URL = env.str("FRONTEND_URL")
 
 # === APPLICATION CONFIGURATION === #
 AUTH_USER_MODEL = 'users.User'
@@ -51,6 +58,7 @@ INSTALLED_APPS = [
     'sales',
     'analytics',
     'notifications',
+    'webhooks'
 ]
 
 MIDDLEWARE = [
@@ -65,9 +73,13 @@ MIDDLEWARE = [
 ]
 
 # === CORS SETTINGS (SECURE FOR PRODUCTION) === #
-CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
-    "http://localhost:5173"
-])
+if DEBUG:
+    CORS_ALLOWED_ORIGINS  = ["http://localhost:5173"]
+else:
+    CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
+        "http://localhost:5173"
+    ])
+
 CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
 CORS_ALLOW_CREDENTIALS = True
 
@@ -101,7 +113,7 @@ DATABASES = {
         'NAME': env('POSTGRES_DB', default='trading_db'),
         'USER': env('POSTGRES_USER', default='trading_user'),
         'PASSWORD': env('POSTGRES_PASSWORD', default='trading_password'),
-        'HOST': env('POSTGRES_HOST', default='localhost'),
+        'HOST': env('POSTGRES_HOST', default='db' if DOCKER_MODE else 'localhost'),
         'PORT': env('POSTGRES_PORT', default='5432'),
     }
 }
@@ -113,6 +125,7 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema'
 }
 
 # === PASSWORD VALIDATION === #
@@ -168,19 +181,22 @@ LOGOUT_REDIRECT_URL = "users/login/"
 # === STRIPE PAYMENT SETTINGS === #
 STRIPE_SECRET_KEY = env.str('STRIPE_SECRET_KEY')
 STRIPE_PUBLIC_KEY = env.str('STRIPE_PUBLIC_KEY')
+STRIPE_WEBHOOK_SECRET = env.str('STRIPE_WEBHOOK_SECRET')
 
 # === CHANNELS (WEBSOCKETS) === #
+REDIS_HOST = "redis" if DOCKER_MODE else "127.0.0.1"
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [("redis", 6379)],
+            "hosts": [(REDIS_HOST, 6379)],
         },
     },
 }
 
 # === CELERY === #
-CELERY_BROKER_URL = "redis://redis:6379/0"
+CELERY_BROKER_URL = f"redis://{REDIS_HOST}:6379/0"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 
@@ -219,52 +235,46 @@ if SENTRY_DSN:
     )
 
 
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {
-            "format": "{levelname} {asctime} {module} {message}",
-            "style": "{",
-        },
-        "simple": {
-            "format": "{levelname} {message}",
-            "style": "{",
-        },
-    },
-    "handlers": {
-        "console": {
-            "level": "DEBUG",
-            "class": "logging.StreamHandler",
-            "stream": sys.stdout,
-            "formatter": "verbose",
-        },
-        # "file": {
-        #     "level": "ERROR",
-        #     "class": "logging.FileHandler",
-        #     "filename": "logs/django_error.log",
-        #     "formatter": "verbose",
-        # },
-        "sentry": {
-            "level": "ERROR",
-            "class": "sentry_sdk.integrations.logging.EventHandler",
-        },
-    },
-    "loggers": {
-        "django": {
-            "handlers": ["console", "sentry"],
-            "level": "DEBUG",
-            "propagate": True,
-        },
-        "django.request": {
-            "handlers": ["console", "sentry"],
-            "level": "ERROR",
-            "propagate": False,
-        },
-        "django.db.backends": {
-            "handlers": ["console"],
-            "level": "INFO",
-            "propagate": False,
-        },
-    },
-}
+
+LOGGING = DEFAULT_LOGGING.copy()
+if not DEBUG:
+    LOGGING.update(
+        {
+            "version": 1,
+            "disable_existing_loggers": False,
+            "formatters": {
+                "verbose": {
+                    "format": "{levelname} {asctime} {module} {message}",
+                    "style": "{",
+                },
+                "simple": {
+                    "format": "{levelname} {message}",
+                    "style": "{",
+                },
+            },
+            "handlers": {
+                "console": {
+                    "level": "CRITICAL",
+                    "class": "logging.StreamHandler",
+                    "stream": sys.stdout,
+                    "formatter": "verbose",
+                },
+                "sentry": {
+                    "level": "ERROR",
+                    "class": "sentry_sdk.integrations.logging.EventHandler",
+                },
+            },
+            "loggers": {
+                "django": {
+                    "handlers": ["console", "sentry"],
+                    "level": "ERROR",
+                    "propagate": True,
+                },
+                "django.request": {
+                    "handlers": ["sentry"],
+                    "level": "ERROR",
+                    "propagate": False,
+                },
+            },
+        }
+    )

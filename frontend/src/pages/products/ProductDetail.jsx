@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import {useParams, useNavigate, redirect} from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 
 const ProductDetail = () => {
@@ -25,32 +25,23 @@ const ProductDetail = () => {
     }
 
     try {
-        const response = await axios.post(
-          `${API_BASE_URL}/trading/orders/`,
-          { product: id, quantity: 1 },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+      await axios.post(
+        `${API_BASE_URL}/trading/orders/`,
+        { product: id, quantity: 1 },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
 
-        const orderId = response.data.id;
-        const salesOrderId = response.data.sales_order_id;
+      setMessage({ type: "success", text: "Wait to approving" });
 
+      setTimeout(() => {
+        navigate("/orders");
+      }, 2000);
 
-        const paymentResponse = await axios.post(
-          `${API_BASE_URL}/sales/sales-orders/create_payment_session/`,
-          { orderId: orderId, salesId: salesOrderId},
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-
-
-        window.location.href = paymentResponse.data.checkout_url;
-
-      } catch (error)
-        {
-
-            const errorMessage = error.response?.data?.error || "Failed to create order!";
-            setMessage({ type: "error", text: errorMessage });
-        }
-    };
+    } catch (error) {
+      const errorMessage = error.response?.data?.error || "Failed to create order!";
+      setMessage({ type: "error", text: errorMessage });
+    }
+  };
 
   if (!product) return <p>Loading...</p>;
 
@@ -77,7 +68,11 @@ const ProductDetail = () => {
             />
           </div>
 
-          {message && <p className={`text-${message.type === "error" ? "red" : "green"}-600 mt-2`}>{message.text}</p>}
+          {message && (
+            <p className={`text-${message.type === "error" ? "red" : "green"}-600 mt-2`}>
+              {message.text}
+            </p>
+          )}
 
           <button
             onClick={handleBuyNow}
