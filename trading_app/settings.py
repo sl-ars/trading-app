@@ -14,7 +14,7 @@ from sentry_sdk.integrations.celery import CeleryIntegration
 from django.utils.log import DEFAULT_LOGGING
 import drf_spectacular
 # Check if running inside Docker
-DOCKER_MODE = os.getenv('DOCKERIZED')
+
 
 # === BASE DIRECTORY === #
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -22,6 +22,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # === ENVIRONMENT VARIABLES === #
 env = environ.Env()
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
+
+DOCKER_MODE = env.bool('DOCKERIZED')
 
 # === SECURITY SETTINGS === #
 SECRET_KEY = env.str('SECRET_KEY')
