@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, permissions, serializers, status
 from rest_framework.response import Response
@@ -89,7 +90,9 @@ class SalesOrderViewSet(viewsets.ModelViewSet):
             mode='payment',
             success_url=f"{frontend_base_url}/orders/{order.id}/success/",
             cancel_url=f"{frontend_base_url}/orders/{order.id}/cancel/",
-            metadata={"sales_order_id": str(sales_order.id)}
+            payment_intent_data={
+                "metadata": {"sales_order_id": str(sales_order.id)}
+            }
         )
 
         # Store Payment Intent
@@ -162,34 +165,42 @@ class InvoiceViewSet(viewsets.ModelViewSet):
 
         return Invoice.objects.filter(sales_order__order__user=self.request.user)
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
-        """ Create an invoice and trigger PDF generation """
+        """Create an invoice and trigger PDF generation."""
         sales_order_id = request.data.get("sales_order")
 
         if not sales_order_id:
             return Response({"error": "Missing sales_order ID"}, status=status.HTTP_400_BAD_REQUEST)
 
-        sales_order = get_object_or_404(SalesOrder, id=sales_order_id)
+        try:
+            sales_order = SalesOrder.objects.select_related('order', 'order__user', 'order__product').get(
+                id=sales_order_id)
+            print(f"Sales Order Found: {sales_order}")
+        except SalesOrder.DoesNotExist:
+            return Response({"error": "Sales Order not found"}, status=status.HTTP_404_NOT_FOUND)
 
+        # Permission Check
         if (
-            sales_order.order.user != request.user and
-            sales_order.order.product.user != request.user and
-            not request.user.is_admin()
+                sales_order.order.user != request.user and
+                sales_order.order.product.user != request.user and
+                not request.user.is_admin()
         ):
             return Response(
                 {"error": "You do not have permission to generate this invoice."},
                 status=status.HTTP_403_FORBIDDEN
             )
 
-
+        # Avoid Duplicate Invoice
         if Invoice.objects.filter(sales_order=sales_order).exists():
             return Response({"error": "Invoice already exists"}, status=status.HTTP_400_BAD_REQUEST)
 
-
+        # Create Invoice Entry
         invoice = Invoice.objects.create(sales_order=sales_order)
+        print(f"Invoice Created: {invoice.id}")
 
-
-        generate_invoice.delay(sales_order.id)
+        # Asynchronous Task for Invoice Generation
+        generate_invoice.apply_async(args=[sales_order.id])
 
         return Response(
             {"message": "Invoice is being generated. Please check again later.", "invoice_id": invoice.id},

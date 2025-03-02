@@ -9,96 +9,72 @@ from reportlab.lib.styles import getSampleStyleSheet
 from io import BytesIO
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from django.db import connection
+from django.db import transaction, close_old_connections
+
+
+import threading
 
 @shared_task(bind=True)
 def generate_invoice(self, sales_order_id):
     """ Generate an invoice PDF asynchronously using ReportLab """
 
     try:
-        sales_order = SalesOrder.objects.get(id=sales_order_id)
+        print("Step 1: Task Started")
+        print(f"Sales Order ID: {sales_order_id}")
+        print(f"Sales Order ID Type: {type(sales_order_id)}")
 
-        # Create a new invoice or update existing one
-        invoice, _ = Invoice.objects.get_or_create(sales_order=sales_order)
+        # Ensure sales_order_id is an integer
+        try:
+            sales_order_id = int(sales_order_id)
+        except ValueError:
+            raise Exception(f"Invalid Sales Order ID format: {sales_order_id}")
 
-        # Generate PDF in memory
+        # Ensure old connections are closed properly
+        close_old_connections()
+
+        # Fetch Sales Order inside a safe transaction block
+        with transaction.atomic():
+            sales_order = SalesOrder.objects.get(id=sales_order_id)
+        print(f"Step 3: Sales Order Fetched: {sales_order}")
+
+        # Create or Fetch Existing Invoice
+        invoice, created = Invoice.objects.get_or_create(sales_order=sales_order)
+
+        # Prepare PDF Generation
         buffer = BytesIO()
+        print("Step 6: Buffer Created")
+
         doc = SimpleDocTemplate(buffer, pagesize=A4)
+        print("Step 7: SimpleDocTemplate Created")
 
         styles = getSampleStyleSheet()
         elements = []
 
-        # Title
-        title = Paragraph("<b>INVOICE</b>", styles["Title"])
-        elements.append(title)
+        elements.append(Paragraph("<b>INVOICE</b>", styles["Title"]))
         elements.append(Spacer(1, 12))
 
-        # Invoice Details
-        invoice_details = [
-            ["Invoice ID:", str(invoice.id)],
-            ["Order ID:", str(sales_order.id)],
-            ["Issued At:", str(invoice.issued_at)],
-            ["Customer:", sales_order.order.user.username],
-        ]
-
-        table = Table(invoice_details, colWidths=[100, 300])
-        table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.grey),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
-            ("BACKGROUND", (0, 1), (-1, -1), colors.beige),
-            ("GRID", (0, 0), (-1, -1), 1, colors.black),
-        ]))
-        elements.append(table)
+        # Minimal PDF Content
+        elements.append(Paragraph(f"Invoice ID: {invoice.id}", styles["Normal"]))
+        elements.append(Paragraph(f"Order ID: {sales_order.id}", styles["Normal"]))
         elements.append(Spacer(1, 12))
 
-        # Product Details
-        product_details = [
-            ["Product", "Quantity", "Price", "Total"],
-            [sales_order.order.product.title, str(sales_order.order.quantity),
-             f"{sales_order.order.product.price} ₸", f"{sales_order.order.total_price} ₸"]
-        ]
+        # Use a threading lock for the PDF generation
+        lock = threading.Lock()
+        with lock:
+            print("Step 8: Starting PDF Generation")
+            doc.build(elements)
+            buffer.seek(0)
+            print("Step 9: PDF Generated Successfully")
 
-        product_table = Table(product_details, colWidths=[200, 100, 100, 100])
-        product_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.darkblue),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
-            ("BACKGROUND", (0, 1), (-1, -1), colors.white),
-            ("GRID", (0, 0), (-1, -1), 1, colors.black),
-        ]))
-        elements.append(product_table)
-        elements.append(Spacer(1, 12))
-
-        # Total Amount
-        total_amount = Paragraph(f"<b>Total Amount:</b> {sales_order.order.total_price} ₸", styles["Normal"])
-        elements.append(total_amount)
-        elements.append(Spacer(1, 12))
-
-        # Save PDF
-        doc.build(elements)
-        buffer.seek(0)
-
-        # Save the PDF file to storage
+        # Save the PDF to File Storage
         pdf_filename = f"invoice/order_{sales_order.id}.pdf"
         invoice.pdf_file.save(pdf_filename, ContentFile(buffer.read()), save=True)
+        print(f"Step 10: PDF Saved as {pdf_filename}")
 
         return f"Invoice generated for Order {sales_order.id}"
 
     except Exception as e:
-        # Notify user about the failure
-        notify_failure(sales_order.order.user, f"Failed to generate invoice for Order {sales_order.id}. Reason: {str(e)}")
-
-        # Return failure reason
+        print(f"ERROR: Invoice generation failed: {str(e)}")
         self.update_state(state="FAILURE", meta={"error": str(e)})
         return f"Invoice generation failed: {str(e)}"
-
-def notify_failure(user, message):
-    """ Sends a WebSocket notification when invoice generation fails """
-    channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(
-        f"user_{user.id}", {"type": "notify", "message": message}
-    )
