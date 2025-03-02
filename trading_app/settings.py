@@ -202,16 +202,7 @@ CHANNEL_LAYERS = {
 CELERY_BROKER_URL = f"redis://{REDIS_HOST}:6379/0"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
-CELERY_WORKER_POOL = 'gevent'
-CELERY_WORKER_MAX_TASKS_PER_CHILD = 1
-CELERY_FORCE_EXECV = True
-CELERYD_DB_REUSE_MAX = 0
-from django.db import close_old_connections
-from celery.signals import worker_process_init
 
-@worker_process_init.connect
-def close_db_connections(**kwargs):
-    close_old_connections()
 
 # === JWT === #
 
